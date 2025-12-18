@@ -1,11 +1,22 @@
 import { AppDispatch } from "@/store";
 import { loginSuccess, logout } from "@/store/slices/authSlice";
-import { addBio, removeBio, addProfile, removeProfile } from "@/store/slices/userSlice";
-import { apiLogin, apiLogout, apiRegister, LoginPayload, RegisterPayload } from "@/api/auth.api";
+import {
+  addBio,
+  removeBio,
+  addProfile,
+  removeProfile,
+  removeUserId, // import removeUserId from userSlice
+} from "@/store/slices/userSlice";
+import {
+  apiLogin,
+  apiLogout,
+  apiRegister,
+  LoginPayload,
+  RegisterPayload,
+} from "@/api/auth.api";
 import { toast } from "react-toastify";
 
 // Đăng xuất xong chuyển hướng đến trang auth
-// Để nav được, nhận thêm đối số router truyền từ useRouter của next/router hoặc react-router
 
 // Login — có Redux, token, toast
 export const authLogin = async (dispatch: AppDispatch, payload: LoginPayload) => {
@@ -57,6 +68,7 @@ export const authLogout = async (
   dispatch(logout());
   dispatch(removeBio());
   dispatch(removeProfile());
+  dispatch(removeUserId()); // xóa userId khỏi store khi logout
   toast.info("Đã đăng xuất!");
-  router.push("/auth"); // <-- điều hướng đến trang đăng nhập
+  router.push("/auth");
 };

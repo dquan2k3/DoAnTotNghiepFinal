@@ -3,7 +3,41 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { authLogout } from "@/services/auth";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { getCloudinaryImageLink } from "@/helper/croppedImageHelper";
+import { getMessageList } from "@/api/conversation.api";
+import { useChatDock } from "@/app/providers/ChatDockProvider";
+
+// Hàm hiển thị thời gian "xx giờ/ngày/tuần/tháng/năm trước"
+function getTimeAgoVN(dateInput: string | Date): string {
+    let date: Date;
+    if (!dateInput) return "";
+    try {
+        date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+        if (isNaN(date.getTime())) return "";
+    } catch {
+        return "";
+    }
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+
+    if (diffMs < 0) return "Vừa xong"; // Tương lai
+
+    const diffSecond = Math.floor(diffMs / 1000);
+    if (diffSecond < 60) return "Vừa xong";
+    const diffMinute = Math.floor(diffSecond / 60);
+    if (diffMinute < 60) return `${diffMinute} phút trước`;
+    const diffHour = Math.floor(diffMinute / 60);
+    if (diffHour < 24) return `${diffHour} giờ trước`;
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffDay < 7) return `${diffDay} ngày trước`;
+    const diffWeek = Math.floor(diffDay / 7);
+    if (diffWeek < 4) return `${diffWeek} tuần trước`;
+    const diffMonth = Math.floor(diffDay / 30.4375); // trung bình tháng
+    if (diffMonth < 12) return `${diffMonth} tháng trước`;
+    const diffYear = Math.floor(diffDay / 365.25);
+    return `${diffYear} năm trước`;
+}
 
 // Dropdown component for profile/messages/notifications
 function Dropdown({
@@ -35,7 +69,7 @@ function Dropdown({
                 top: "4rem",
                 marginTop: 0,
             }}
-            className="absolute w-72 bg-white dark:bg-zinc-900 shadow-xl rounded-xl z-30 p-2 border border-zinc-100 dark:border-zinc-800"
+            className="absolute bg-white dark:bg-zinc-900 shadow-xl rounded-xl z-30 p-2 border border-zinc-100 dark:border-zinc-800"
         >
             {children}
         </div>
@@ -75,6 +109,13 @@ function Header() {
     const router = useRouter();
     const dispatch = useDispatch();
 
+    // Lấy state user trong redux và log ra
+    const user = useSelector((state: any) => state.user);
+    const userId = user?.userId;
+    useEffect(() => {
+        console.log("Redux user state:", user);
+    }, [user]);
+
     const [openNotif, setOpenNotif] = useState(false);
     const [openMsg, setOpenMsg] = useState(false);
     const [openProfile, setOpenProfile] = useState(false);
@@ -83,15 +124,62 @@ function Header() {
     const [searchHasFocus, setSearchHasFocus] = useState(false);
     const [searchValue, setSearchValue] = useState("");
 
-    // Dummy notifications/messages data
+    const { openChat } = useChatDock();
+
+    // Notifications (dummy)
     const notifications = [
         { id: 1, content: "Bạn có 1 lời mời kết bạn mới", time: "2 phút trước" },
         { id: 2, content: "Bài viết của bạn vừa được thích!", time: "10 phút trước" },
     ];
-    const messages = [
-        { id: 1, from: "Mai Lan", content: "Chào bạn!", time: "Vừa xong", avatar: "/avatar1.png" },
-        { id: 2, from: "Nguyễn Quốc", content: "Tối nay rảnh không?", time: "15 phút trước", avatar: "/avatar2.png" },
-    ];
+
+    // --- State for messages fetched from API ---
+    const [messages, setMessages] = useState<any[]>([]);
+
+    // Fetch conversation list and transform to messages display
+    useEffect(() => {
+        (async () => {
+            const response = await getMessageList();
+            console.log("conversationList\n\n:", response?.conversationList);
+
+            if (Array.isArray(response?.conversationList)) {
+                const mapped =
+                    response.conversationList.map((item: any) => {
+                        const latestMsg = item.latestMessage;
+                        let displayContent = latestMsg?.message || "";
+
+                        if (
+                            latestMsg &&
+                            userId &&
+                            latestMsg.senderId &&
+                            String(latestMsg.senderId) === String(userId)
+                        ) {
+                            displayContent = `Bạn: ${latestMsg.message || ""}`;
+                        }
+
+                        return {
+                            id: item.conversationId,
+                            conversationId: item.conversationId, // include conversationId for openChat
+                            from: item.receiverName || "Người dùng",
+                            username: item.receiverUsername || "",
+                            userId: item.receiverId || item.receiver_id || "",
+                            content: displayContent,
+                            time: (() => {
+                                if (!item.latestMessage?.createdAt) return "";
+                                try {
+                                    return getTimeAgoVN(item.latestMessage.createdAt);
+                                } catch {
+                                    return "";
+                                }
+                            })(),
+                            avatar: getCloudinaryImageLink(item.receiverAvatar, item.receiverAvatarCroppedArea, 56),
+                        };
+                    });
+                setMessages(mapped);
+            } else {
+                setMessages([]);
+            }
+        })();
+    }, [userId]);
 
     // For search input expand on focus or when have text
     const searchExpanded = searchHasFocus || !!searchValue;
@@ -99,7 +187,37 @@ function Header() {
     // Determine if search should be fully expanded & no padding (focus or has value)
     const searchButtonFull = searchHasFocus || !!searchValue;
 
-    // Đảm bảo header luôn cố định (không bị đẩy do thanh scroll) bằng cách dùng position: 'fixed' và width: '100vw'
+    // Get the current user profile data if available
+    const profile = user?.profile || {};
+    const displayName = profile?.name || "Người dùng";
+    const displayUsername = profile?.username || user?.username || "";
+    const displayEmail = user.profile?.email || "";
+    const avatarUrl = getCloudinaryImageLink(user.bio?.avatar, user.bio?.avatarCroppedArea, 56)
+    // Fallback avatar nếu không có avatar trong user
+
+    // Hàm xử lý khi click vào tin nhắn
+    const handleMessageClick = ({
+        userId,
+        conversationId,
+        name,
+        username,
+        avatar,
+    }: {
+        userId: string;
+        conversationId: string;
+        name?: string;
+        username?: string;
+        avatar?: string;
+    }) => {
+        openChat({
+            id: userId,
+            conversationId: conversationId,
+            title: name || username || "Người dùng",
+            avatarUrl: avatar,
+        });
+        setOpenMsg(false);
+    };
+
     return (
         <header
             className="fixed top-0 left-0 bg-white dark:bg-zinc-900 shadow-sm z-30 border-b border-zinc-100 dark:border-zinc-800 h-16 flex items-stretch"
@@ -330,30 +448,71 @@ function Header() {
                                 <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-zinc-900"></span>
                             </button>
                             <Dropdown open={openMsg} setOpen={setOpenMsg}>
-                                <div className="font-semibold mb-2 text-zinc-900 dark:text-zinc-100">Tin nhắn</div>
+                                <div
+                                    className="font-semibold mb-2 text-zinc-900 dark:text-zinc-100"
+                                    style={{
+                                        minWidth: "340px", // set minWidth to 340px for dropdown container
+                                    }}
+                                >
+                                    Tin nhắn
+                                </div>
                                 <ul>
                                     {messages.length === 0 && (
-                                        <li className="py-3 text-center text-zinc-500">Chưa có tin nhắn</li>
+                                        <li
+                                            style={{
+                                                width: "340px",
+                                                height: "75px",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                            }}
+                                            className="text-center text-zinc-500"
+                                        >
+                                            Chưa có tin nhắn
+                                        </li>
                                     )}
                                     {messages.map((m) => (
                                         <li
                                             key={m.id}
-                                            className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                                            className="flex items-center gap-4 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                                            style={{
+                                                width: "340px",
+                                                height: "75px",
+                                                padding: "12px 14px",
+                                                boxSizing: "border-box"
+                                            }}
+                                            onClick={() => {
+                                                const msgInfo = {
+                                                    userId: m.userId,
+                                                    conversationId: m.conversationId,
+                                                    name: m.from,
+                                                    username: m.username,
+                                                    avatar: m.avatar,
+                                                };
+                                                console.log("handleMessageClick payload:", msgInfo);
+                                                handleMessageClick(msgInfo);
+                                            }}
                                         >
                                             <img
                                                 src={m.avatar}
                                                 alt={m.from}
-                                                className="w-8 h-8 rounded-full object-cover border"
+                                                className="rounded-full object-cover border"
+                                                style={{
+                                                    width: "56px",
+                                                    height: "56px",
+                                                    minWidth: "56px",
+                                                    minHeight: "56px",
+                                                }}
                                             />
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-sm truncate text-zinc-900 dark:text-zinc-100">
+                                            <div className="flex-1 min-w-0 flex flex-col justify-center" style={{ height: "100%" }}>
+                                                <div className="font-semibold text-base truncate text-zinc-900 dark:text-zinc-100" style={{ lineHeight: "1.25" }}>
                                                     {m.from}
                                                 </div>
-                                                <div className="text-xs truncate text-zinc-500 dark:text-zinc-400">
+                                                <div className="text-sm truncate text-zinc-500 dark:text-zinc-400" style={{ lineHeight: "1.2", marginTop: "2px" }}>
                                                     {m.content}
                                                 </div>
                                             </div>
-                                            <span className="text-xs text-zinc-400 ml-1">{m.time}</span>
+                                            <span className="text-xs text-zinc-400 ml-2 whitespace-nowrap">{m.time}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -380,8 +539,8 @@ function Header() {
                                 {/* Đổi avatar to bằng mess (w-12 h-12) */}
                                 <span className="relative w-12 h-12 flex items-center justify-center">
                                     <img
-                                        src="/avatar1.png"
-                                        alt="User"
+                                        src={avatarUrl}
+                                        alt={displayName}
                                         className="w-12 h-12 rounded-full object-cover border border-zinc-200 dark:border-zinc-700"
                                     />
                                     {/* Arrow Down moved to bottom-right in the circle */}
@@ -405,17 +564,24 @@ function Header() {
                             <Dropdown open={openProfile} setOpen={setOpenProfile}>
                                 <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
                                     <img
-                                        src="/avatar1.png"
-                                        alt="User"
+                                        src={avatarUrl}
+                                        alt={displayName}
                                         className="w-8 h-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700"
                                     />
                                     <div>
                                         <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                            Trần Thị Lan
+                                            {displayName}
                                         </div>
-                                        <div className="text-xs text-zinc-400">
-                                            lan.tran@email.com
-                                        </div>
+                                        {displayUsername && (
+                                            <div className="text-xs text-zinc-400 break-all">
+                                                @{displayUsername}
+                                            </div>
+                                        )}
+                                        {displayEmail && (
+                                            <div className="text-xs text-zinc-400 break-all">
+                                                {displayEmail}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <ul className="py-1">

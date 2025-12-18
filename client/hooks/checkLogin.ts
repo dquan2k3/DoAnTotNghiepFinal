@@ -13,7 +13,7 @@ export function useCheckLogin() {
     const [isChecking, setIsChecking] = useState(true);
 
     useEffect(() => {
-        // Không chặn trang auth, để người dùng chưa đăng nhập có thể vào /auth
+        
         if (pathname?.startsWith("/auth")) {
             setIsChecking(false);
             return;

@@ -8,11 +8,10 @@ export default function ClientInit({
 }: {
   children: React.ReactNode;
 }) {
-  const { isCheckingAuth } = InitHooks();
-
-  if (isCheckingAuth) {
-    return <Loading />;
-  }
-
+   InitHooks();
+   
   return <>{children}</>;
+
+
+  return
 }

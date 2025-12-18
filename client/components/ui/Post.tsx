@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import PostingPopup from "./PostingPopup";
 import Showpost from "./Showpost";
 import { apiGetProfilePost, apiUploadPost } from "@/api/post.api";
-import { apiGetUserPost } from "@/api/profile.api";
 
 function LoadingDots() {
   return (
@@ -15,47 +14,75 @@ function LoadingDots() {
   );
 }
 
-// Thêm userId vào props, ẩn tính năng đăng bài nếu có userId
+type PostProps = {
+  pageType?: string;
+  userId?: string;
+  name?: string;
+  username?: string;
+  avatar?: string;
+  avatarCroppedArea?: any;
+};
+
+// Modified to include myReact as only "like" | null | undefined
+type PostTypeWithMyReact = {
+  _id: string;
+  text: string;
+  files?: any[];
+  liked?: boolean;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  avatar?: string;
+  name?: string;
+  username?: string;
+  avatarCroppedArea?: any;
+  createdAt?: string;
+  myReact?: "like" | null;
+};
+
+type PostType = {
+  _id: string;
+  text: string;
+  files?: any[];
+  liked?: boolean;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  avatar?: string;
+  name?: string;
+  username?: string;
+  avatarCroppedArea?: any;
+  createdAt?: string;
+};
+
 export default function Post({
-  pageType,
   userId,
   name = "Bạn",
   username,
   avatar,
   avatarCroppedArea,
-}) {
+}: PostProps) {
   const [isPosting, setIsPosting] = useState(false);
-  const [isLoadding, setIsLoadding] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [textToPost, setTextToPost] = useState("");
-  const [posts, setPosts] = useState<any[]>([]);
+  const [posts, setPosts] = useState<PostType[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [error, setError] = useState("");
 
-  // State cho ShowImage popup
+  // ShowImage popup state
   const [showImage, setShowImage] = useState(false);
-  const [showImageFiles, setShowImageFiles] = useState([]);
+  const [showImageFiles, setShowImageFiles] = useState<any[]>([]);
   const [showImageIdx, setShowImageIdx] = useState(0);
 
-  const [showImageAvatar, setShowImageAvatar] = useState(undefined);
-  const [showImageAvatarCroppedArea, setShowImageAvatarCroppedArea] = useState(undefined);
-  const [showImageName, setShowImageName] = useState(undefined);
-  const [showImageUsername, setShowImageUsername] = useState(undefined);
-  const [showImageCreatedAt, setShowImageCreatedAt] = useState(undefined);
-
+  // Showpost popup state
   const [showPostPopup, setShowPostPopup] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
-  // useEffect lấy dữ liệu post: truyền userId nếu có, nếu không thì lấy posts bình thường
   useEffect(() => {
     setLoadingPosts(true);
     setError('');
-    let fetchFunc;
-    if (userId) {
-      fetchFunc = () => apiGetProfilePost(userId);
-    } else {
-      fetchFunc = () => apiGetProfilePost();
-    }
-    fetchFunc()
+    const fetchPosts = userId ? () => apiGetProfilePost(userId) : () => apiGetProfilePost();
+    fetchPosts()
       .then((res: any) => {
         if (res?.data?.posts) {
           const patchedPosts = res.data.posts.map((p: any) => ({
@@ -85,19 +112,20 @@ export default function Post({
     // eslint-disable-next-line
   }, [userId]);
 
-  const selectedPost = selectedPostId
+  // Fix type so it matches the expected type by Showpost
+  const selectedPost: PostTypeWithMyReact | null = selectedPostId
     ? (() => {
-        const post = posts.find((p: any) => p._id === selectedPostId);
-        return post
-          ? {
-              ...post,
-              myReact: (post.liked ? "like" : null) as "like" | null,
-            }
-          : null;
-      })()
+      const post = posts.find((p) => p._id === selectedPostId);
+      return post
+        ? {
+          ...post,
+          myReact: post.liked ? "like" : null as "like" | null,
+        }
+        : null;
+    })()
     : null;
 
-  function Avatar({ src, size, className }) {
+  function Avatar({ src, size, className }: { src?: string; size?: number; className?: string }) {
     return (
       <img
         src={src || "https://ui-avatars.com/api/?name=Demo&background=random"}
@@ -114,33 +142,21 @@ export default function Post({
     setShowImage(false);
     setShowImageFiles([]);
     setShowImageIdx(0);
-    setShowImageAvatar(undefined);
-    setShowImageAvatarCroppedArea(undefined);
-    setShowImageName(undefined);
-    setShowImageUsername(undefined);
-    setShowImageCreatedAt(undefined);
   };
 
   const handleOpenShowImage = ({
     files,
     fileIdx,
-    avatar,
-    avatarCroppedArea,
-    name,
-    username,
-    createdAt,
+  }: {
+    files: any[];
+    fileIdx: number;
   }) => {
     setShowImageFiles(files);
     setShowImageIdx(fileIdx);
-    setShowImageAvatar(avatar);
-    setShowImageAvatarCroppedArea(avatarCroppedArea);
-    setShowImageName(name);
-    setShowImageUsername(username);
-    setShowImageCreatedAt(createdAt);
     setShowImage(true);
   };
 
-  const handleOpenShowPost = (post: any) => {
+  const handleOpenShowPost = (post: PostType) => {
     setSelectedPostId(post._id);
     setShowPostPopup(true);
   };
@@ -150,7 +166,11 @@ export default function Post({
     setSelectedPostId(null);
   };
 
-  const renderMedia = (file, idx, extra = {}) => {
+  const renderMedia = (
+    file: any,
+    idx: number,
+    extra: { className?: string; style?: React.CSSProperties } = {}
+  ) => {
     if (file.file_type === "video") {
       return (
         <video
@@ -174,45 +194,36 @@ export default function Post({
           handleOpenShowImage({
             files: [file],
             fileIdx: 0,
-            avatar,
-            avatarCroppedArea,
-            name,
-            username,
-            createdAt: posts[0]?.createdAt,
           })
         }
       />
     );
   };
 
-  interface PostData {
+  type PostData = {
     text: string;
     files?: File[];
     [key: string]: any;
-  }
+  };
 
-  interface PostResult {
+  type PostResult = {
     success: boolean;
     error?: string;
-  }
+  };
 
   const handlePost = async (postData: PostData): Promise<PostResult> => {
     if (!postData || !postData.text || !postData.text.trim()) {
       return { success: false, error: "EMPTY_POST" };
     }
-    setIsLoadding(true);
+    setIsLoading(true);
     try {
       const res = await apiUploadPost(postData);
-      console.log("API UPLOAD POST RESPONSE:", res);
-
       if (res && res.data && res.data.success && res.data.post) {
         const postFromApi = res.data.post;
         const displayFiles = Array.isArray(postFromApi.files)
-          ? postFromApi.files.map((f) => ({
-              ...f,
-            }))
+          ? postFromApi.files.map((f: any) => ({ ...f }))
           : [];
-        const newPost = {
+        const newPost: PostType = {
           ...postFromApi,
           files: displayFiles,
           liked: false,
@@ -223,7 +234,7 @@ export default function Post({
           name: postFromApi.name || name,
           username: postFromApi.username || username,
         };
-        setPosts((prev: any[]) => [newPost, ...prev]);
+        setPosts((prev) => [newPost, ...prev]);
         setTextToPost("");
         return { success: true };
       }
@@ -231,26 +242,26 @@ export default function Post({
       console.error("Error when uploading post:", err);
       return { success: false, error: "UPLOAD_FAILED" };
     } finally {
-      setIsLoadding(false);
+      setIsLoading(false);
     }
     return { success: false };
   };
 
   const handleClickOpenPostingPopup = () => {
-    if (!isLoadding) {
+    if (!isLoading) {
       setIsPosting(true);
     }
   };
 
   const handleLike = (postId: string) => {
-    setPosts((prev: any[]) =>
-      prev.map((item: any) => {
+    setPosts((prev) =>
+      prev.map((item) => {
         if (item._id === postId) {
           const isLiked = !!item.liked;
           return {
             ...item,
             liked: !item.liked,
-            likeCount: isLiked ? Math.max(0, item.likeCount - 1) : item.likeCount + 1,
+            likeCount: isLiked ? Math.max(0, (item.likeCount ?? 0) - 1) : (item.likeCount ?? 0) + 1,
           };
         }
         return item;
@@ -259,12 +270,12 @@ export default function Post({
   };
 
   return (
-    <div className="flex w-full gap-6 bg-red-00 justify-center">
-      {/* ShowImage popup (demo) */}
+    <div className="flex w-full gap-6 justify-center">
+      {/* ShowImage popup */}
       {showImage && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col justify-center items-center">
           <div className="bg-white rounded-lg p-6 max-w-xl w-full flex flex-col items-center">
-            <div className="mb-4">ShowImage (demo):</div>
+            <div className="mb-4">ShowImage:</div>
             <div className="mb-2">
               <img
                 src={showImageFiles[showImageIdx]?.file_url}
@@ -292,25 +303,21 @@ export default function Post({
         />
       )}
 
-      {/* Khi click vào đăng bài viết mới sẽ showPopup: PostingPopup - Ẩn nếu có userId */}
+      {/* PostingPopup - hidden if userId is present */}
       {!userId && (
         <PostingPopup
           isPosting={isPosting}
           onClose={() => {
-            if (!isLoadding) setIsPosting(false);
+            if (!isLoading) setIsPosting(false);
           }}
           onPost={handlePost}
-          avatar={avatar}
-          name={name}
-          avatarCroppedArea={avatarCroppedArea}
           textToPost={textToPost}
           setTextToPost={setTextToPost}
         />
       )}
 
-      {/* Khu vực đăng bài và danh sách bài viết */}
       <div className="w-full flex flex-col gap-4">
-        {/* Khu vực đăng bài mới - Ẩn nếu có userId */}
+        {/* New post input area - hidden if userId */}
         {!userId && (
           <div className="bg-[#252728] rounded-lg p-4 flex flex-col items-center">
             <div className="w-full min-h-[56px] flex gap-4">
@@ -324,7 +331,7 @@ export default function Post({
                   title={textToPost && textToPost.length > 140 ? textToPost : undefined}
                   style={{ wordBreak: "break-all", whiteSpace: "pre-line" }}
                 >
-                  {isLoadding ? (
+                  {isLoading ? (
                     <span className="flex items-center font-medium text-[#58A2F7]">
                       Đang đăng tải bài viết
                       <LoadingDots />
@@ -447,12 +454,6 @@ export default function Post({
                                   handleOpenShowImage({
                                     files: files,
                                     fileIdx: idx2 + 2,
-                                    avatar: p.avatar || avatar,
-                                    avatarCroppedArea:
-                                      p.avatarCroppedArea || avatarCroppedArea,
-                                    name: p.name || name,
-                                    username: p.username || username,
-                                    createdAt: p.createdAt,
                                   })
                                 }
                               >
@@ -489,7 +490,7 @@ export default function Post({
                     <div className="leading-none flex justify-center flex-col">
                       <div className="font-semibold mb-1">{postName}</div>
                       <div className="text-sm text-[#b0b3b8]">
-                        {new Date(p.createdAt).toLocaleString()}
+                        {p.createdAt ? new Date(p.createdAt).toLocaleString() : ""}
                       </div>
                     </div>
                   </div>
@@ -506,13 +507,13 @@ export default function Post({
                         <span role="img" aria-label="like" className="mr-1">
                           👍
                         </span>
-                        {p.likeCount} lượt thích
+                        {p.likeCount ?? 0} lượt thích
                       </span>
                       <span>
                         <span role="img" aria-label="comment" className="mr-1">
                           💬
                         </span>
-                        {p.commentCount} bình luận
+                        {p.commentCount ?? 0} bình luận
                       </span>
                     </div>
                     <div>
@@ -520,7 +521,7 @@ export default function Post({
                         <span role="img" aria-label="share" className="mr-1">
                           🔄
                         </span>
-                        {p.shareCount} lượt chia sẻ
+                        {p.shareCount ?? 0} lượt chia sẻ
                       </span>
                     </div>
                   </div>
@@ -529,10 +530,9 @@ export default function Post({
                     <button
                       onClick={() => handleLike(p._id)}
                       className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md font-semibold text-sm transition cursor-pointer
-                        ${
-                          p.liked
-                            ? "bg-[#3c5cb1] text-blue-400"
-                            : "hover:bg-[#34373c] text-[#b0b3b8]"
+                        ${p.liked
+                          ? "bg-[#3c5cb1] text-blue-400"
+                          : "hover:bg-[#34373c] text-[#b0b3b8]"
                         }
                       `}
                     >

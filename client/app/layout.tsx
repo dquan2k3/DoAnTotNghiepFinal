@@ -5,6 +5,8 @@ import ToastProvider from "./providers/ToastProvider";
 import ReduxProvider from "./providers/ReduxProvider";
 import HeaderWrapper from "@/components/layout/HeaderWrapped";
 import ClientInit from "@/components/ClientInit";
+import ChatDockProvider from "./providers/ChatDockProvider";
+import { SocketWrapped } from "./providers/SocketWrapped";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,11 +35,18 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ReduxProvider>
-          <ToastProvider />
-          <ClientInit>
-            <HeaderWrapper />
-            {children}
-          </ClientInit>
+          <SocketWrapped>
+            <ToastProvider />
+
+            <ClientInit>
+
+              <ChatDockProvider>
+                <HeaderWrapper />
+
+                {children}
+              </ChatDockProvider>
+            </ClientInit>
+          </SocketWrapped>
         </ReduxProvider>
       </body>
     </html>

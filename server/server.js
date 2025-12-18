@@ -4,6 +4,7 @@ import cors from 'cors';
 import initRoutes from './src/routes';
 import connectDB from './src/config/mongoDb';
 import cookieParser from "cookie-parser";
+const { registerSocket } = require('./socket');
 
 
 const app = express();
@@ -24,3 +25,5 @@ initRoutes(app)
 const listener = app.listen(process.env.PORT, () => {
     console.log(`Server is running on port ${listener.address().port}`);
 });
+
+registerSocket(listener)

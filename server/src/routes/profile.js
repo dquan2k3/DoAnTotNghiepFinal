@@ -12,7 +12,7 @@ router.post('/changeBirthDay', verifyToken, profileController.changeBirthDay);
 router.post('/changeSchool', verifyToken, profileController.changeSchool);
 router.post('/getInfo', verifyToken, profileController.getInfo);
 router.post('/getProfile', verifyToken, profileController.getProfile);
-router.post('/getName', verifyToken, profileController.getName);
+router.post('/getMyProfile', verifyToken, profileController.getMyProfile);
 
 // -------- Event Routes --------
 router.post('/addEvent', verifyToken, profileController.addEvent);
@@ -27,6 +27,6 @@ router.post('/changeWebsiteContact', verifyToken, profileController.changeWebsit
 router.post('/getContact', verifyToken, profileController.getContact);
 
 // --------- Add getUserProfile route (api/profile.api.ts 137-141) --------------
-router.post('/getUserProfile', profileController.getUserProfile); // No verifyToken, public profile
+router.post('/getUserProfile', verifyToken, profileController.getUserProfile); // No verifyToken, public profile
 
 export default router;

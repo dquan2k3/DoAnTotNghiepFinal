@@ -1,3 +1,4 @@
+import { getCloudinaryImageLink } from "@/helper/croppedImageHelper";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
     FaRegImage,
@@ -6,6 +7,7 @@ import {
     FaUserTag,
     FaTimes
 } from "react-icons/fa";
+import { useSelector } from "react-redux";
 
 type SelectedImage = {
     file: File;
@@ -13,24 +15,19 @@ type SelectedImage = {
 };
 
 interface PostingPopupProps {
-    avatar?: string;
-    avatarCroppedArea?: any; // not used
     isPosting: boolean;
     textToPost: string;
     setTextToPost: (v: string) => void;
     onClose: () => void;
-    name: string;
     onPost: (postData: any) => Promise<{ success: boolean; error?: string }>;
 }
 
 const PostingPopup = ({
-    avatar,
     isPosting,
     textToPost,
     onPost,
     setTextToPost,
     onClose,
-    name,
 }: PostingPopupProps) => {
     const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
     const [hasPostError, setHasPostError] = useState(false);
@@ -38,6 +35,13 @@ const PostingPopup = ({
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const contentWrapperRef = useRef<HTMLDivElement | null>(null);
+
+    const user = useSelector((state: any) => state.user);
+
+    const avatar = getCloudinaryImageLink(user.bio?.avatar, user.bio?.avatarCroppedArea, 56);
+    const name = user.profile?.name;
+
+
 
     useEffect(() => {
         if (isPosting) {

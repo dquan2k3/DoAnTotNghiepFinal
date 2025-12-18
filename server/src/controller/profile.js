@@ -8,7 +8,7 @@ const streamifier = require("streamifier");
 const { Relationship } = require('../model/relationship');
 
 // Lấy userId từ req.body thay vì req.params
-// Lấy bảng bio và trả ra dữ liệu đúng projection
+// Tìm relationship: tìm userId nếu tồn tại 1 trong 2, sau đó xem id bản thân có ở cái còn lại không
 
 export const getUserProfile = async (req, res) => {
   try {
@@ -17,7 +17,7 @@ export const getUserProfile = async (req, res) => {
       return res.status(400).json({ success: false, message: "Thiếu userId" });
     }
 
-    // Chỉ lấy profile (name, username) và bio, không lấy contact và event
+    // Lấy profile (name, username) và bio
     const [profile, bio] = await Promise.all([
       profileModel.findOne({ user: userId }, 'name username').lean(),
       bioModel.findOne(
@@ -25,6 +25,36 @@ export const getUserProfile = async (req, res) => {
         'avatar cover avatarStat coverStat description avatarCroppedStat avatarCroppedArea coverCroppedStat coverCroppedArea'
       ),
     ]);
+
+    // Lấy relationship
+    let relationship = null;
+    let alsoRelatedWithCurrentUser = false;
+    const currentUserId = req.user?.id;
+
+    //console.log("CURRENT USER ID and userId: ", currentUserId, userId)
+
+    if (currentUserId) {
+      // Tìm relationship có 1 trong 2 là userId truyền vào
+      const rel = await Relationship.findOne({
+        $or: [
+          { requester: userId },
+          { recipient: userId }
+        ]
+      })
+      .select('requester recipient status message acceptedAt wasRejected blockedBy isFollow interactionCount lastInteractionAt createdAt updatedAt')
+      .lean();
+
+      if (rel) {
+        // Kiểm tra nếu currentUserId là người còn lại trong mối quan hệ đó
+        if (
+          (String(rel.requester) === String(userId) && String(rel.recipient) === String(currentUserId)) ||
+          (String(rel.recipient) === String(userId) && String(rel.requester) === String(currentUserId))
+        ) {
+          relationship = rel;
+          alsoRelatedWithCurrentUser = true;
+        }
+      }
+    }
 
     if (!profile) {
       return res.status(404).json({ success: false, message: "Không tìm thấy profile" });
@@ -34,7 +64,7 @@ export const getUserProfile = async (req, res) => {
       success: true,
       profile,
       bio,
-      relationship: null // Không cần relationship vì yêu cầu không lấy nữa
+      relationship // Trả về 1 object duy nhất hoặc null: chỉ trả về nếu mối quan hệ này là giữa userId và currentUserId
     });
   } catch (error) {
     console.log(error);
@@ -122,7 +152,7 @@ export const changeName = async (req, res) => {
   }
 }
 
-export const getName = async (req, res) => {
+export const getMyProfile = async (req, res) => {
   try {
     const userId = req.user.id;
     const profile = await profileModel.findOne(
@@ -140,6 +170,7 @@ export const getName = async (req, res) => {
     }
     res.status(200).json({
       success: true,
+      userId: userId,
       name: profile.name || '',
       username: profile.username || '',
       nameChangedDate: profile.nameChangedDate || null,

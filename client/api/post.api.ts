@@ -72,7 +72,7 @@ export const apiGetSinglePost = async (postId: string) => {
 
 export const apiGetHomePost = async () => {
     try {
-        const response = await instance.get('/api/homePosts');
+        const response = await instance.get('/post/homePosts');
         console.warn(response.data)
         return response;
     } catch (error: any) {
@@ -87,8 +87,9 @@ export const apiGetHomePost = async () => {
 
 export const apiReactPost = async ({ postId, react }: { postId: string, react: string }) => {
     try {
-        const response = await instance.post('/api/reactPost', { postId, react });
-        return response;
+        const response = await instance.post('/post/reactPost', { postId, react });
+        console.log(response)
+        return response.data;
     } catch (error: any) {
         if (error.response) {
             console.error('Lỗi server:', error.response.data);
@@ -101,9 +102,9 @@ export const apiReactPost = async ({ postId, react }: { postId: string, react: s
 
 export const apiCommentPost = async ({ postId, comment }: { postId: string, comment: string }) => {
     try {
-        const response = await instance.post('/api/commentPost', { postId, comment });
+        const response = await instance.post('/post/commentPost', { postId, comment });
         console.log(response)
-        return response;
+        return response.data;
     } catch (error: any) {
         if (error.response) {
             console.error('Lỗi server:', error.response.data);
@@ -116,7 +117,7 @@ export const apiCommentPost = async ({ postId, comment }: { postId: string, comm
 
 export const apiSharePost = async ({ postId }: { postId: string }) => {
     try {
-        const response = await instance.post('/api/sharePost', { postId });
+        const response = await instance.post('/post/sharePost', { postId });
         return response;
     } catch (error: any) {
         if (error.response) {

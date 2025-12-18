@@ -316,12 +316,12 @@ export const getBioFriendAvatar = async (req, res) => {
     try {
         const Id = req.body.Id;
         console.log(Id)
-        const bio = await bioModel.findOne(
+        const avatar = await bioModel.findOne(
             { userid: Id },
             'avatar avatarCroppedArea'
         );
-        console.log(bio)
-        if (!bio) {
+        console.log(avatar)
+        if (!avatar) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy avatar' });
         }
         res.json({ success: true, avatar: bio.avatar, avatarCroppedArea: bio.avatarCroppedArea });

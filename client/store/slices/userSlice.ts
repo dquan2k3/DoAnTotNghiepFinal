@@ -33,11 +33,13 @@ export interface Profile {
 interface UserBioState {
   bio: Bio | null;
   profile: Profile | null;
+  userId: string | null;
 }
 
 const initialState: UserBioState = {
   bio: null,
   profile: null,
+  userId: null,
 };
 
 const userSlice = createSlice({
@@ -56,8 +58,14 @@ const userSlice = createSlice({
     removeProfile: (state) => {
       state.profile = null;
     },
+    setUserId: (state, action: PayloadAction<string>) => {
+      state.userId = action.payload;
+    },
+    removeUserId: (state) => {
+      state.userId = null;
+    },
   }
 });
 
-export const { addBio, removeBio, addProfile, removeProfile } = userSlice.actions;
+export const { addBio, removeBio, addProfile, removeProfile, setUserId, removeUserId } = userSlice.actions;
 export default userSlice.reducer;

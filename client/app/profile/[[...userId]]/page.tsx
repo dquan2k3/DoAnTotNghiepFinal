@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import Post from "@/components/ui/Post";
@@ -9,6 +8,7 @@ import ShowImage from "@/components/ui/ShowImage";
 import { apiChangeUsername, apiGetUserProfile } from "@/api/profile.api";
 import Information from "../menu/Information";
 import { useParams } from "next/navigation";
+import RelationshipButton from "@/components/ui/RelationshipButton";
 
 type ImageObj = {
   file_type?: string;
@@ -16,6 +16,7 @@ type ImageObj = {
   order_index?: number;
 };
 
+// Helper to get remaining username lock days
 function getRemainingDays(usernameChangedDateRaw?: string | number | Date): number {
   if (!usernameChangedDateRaw) return 0;
   const lastChanged = new Date(usernameChangedDateRaw).getTime();
@@ -65,6 +66,7 @@ export default function ProfilePage() {
 
   // Nếu userId: dùng apiGetUserProfile. Ngược lại: dùng redux.
   const reduxUser = useSelector((state: any) => state.user);
+  const myId = reduxUser.userId;
   const [userProfile, setUserProfile] = useState<any>(userId ? null : reduxUser);
 
   // Loading + error cho mode khac user (userId)
@@ -83,8 +85,8 @@ export default function ProfilePage() {
         .catch((err) => {
           setProfileError(
             err?.response?.data?.message ||
-              err?.message ||
-              "Không thể lấy thông tin user"
+            err?.message ||
+            "Không thể lấy thông tin user"
           );
           setLoadingProfile(false);
         });
@@ -92,6 +94,8 @@ export default function ProfilePage() {
       setUserProfile(reduxUser);
     }
   }, [userId, reduxUser]);
+
+ 
 
   // Xử lý sync/logic cho chỉnh sửa username. Chỉ dùng khi không có userId.
   // Khi đang xem profile của chính mình, cho phép sửa username.
@@ -450,13 +454,16 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="pt-16">
-                <button
-                  className="h-[40px] w-[130px] bg-[#0866FF] hover:bg-[#298EFF] text-white rounded-[8px] text-base font-semibold flex items-center justify-center transition"
-                  // onClick logic for Kết bạn sẽ bổ sung sau, tạm thời là alert
-                  onClick={() => alert('Tính năng kết bạn đang phát triển')}
-                >
-                  <span className="mr-2">➕</span> Kết bạn
-                </button>
+                {/* Sử dụng RelationshipButton thay vì nút kết bạn thủ công */}
+                <RelationshipButton
+                  relationship={userProfile?.relationship}
+                  myId={myId}
+                  userId={userId}
+                  name={displayName}
+                  avatar={displayAvatar}
+                  avatarCroppedArea={displayAvatarCroppedArea}
+                  username={displayUsername}
+                />
               </div>
             )}
           </div>
